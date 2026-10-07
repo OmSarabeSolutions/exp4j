@@ -135,6 +135,13 @@
             <version>1.6.5</version>
             <scope>test</scope>
         </dependency>
+        <!-- Nashorn was removed from the JDK in Java 15; needed for the JS comparison in PerformanceTest -->
+        <dependency>
+            <groupId>org.openjdk.nashorn</groupId>
+            <artifactId>nashorn-core</artifactId>
+            <version>15.7</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <licenses>

@@ -15,6 +15,9 @@
  */
 package net.objecthunter.exp4j.operator;
 
+import net.objecthunter.exp4j.internal.BuiltinOperator;
+import net.objecthunter.exp4j.internal.Builtins;
+
 public abstract class Operators {
     private static final int INDEX_ADDITION = 0;
     private static final int INDEX_SUBTRACTION = 1;
@@ -28,60 +31,14 @@ public abstract class Operators {
     private static final Operator[] BUILT_IN_OPERATORS = new Operator[8];
 
     static {
-        BUILT_IN_OPERATORS[INDEX_ADDITION] = new Operator("+", 2, true, Operator.PRECEDENCE_ADDITION) {
-            @Override
-            public double apply(final double... args) {
-                return args[0] + args[1];
-            }
-        };
-        BUILT_IN_OPERATORS[INDEX_SUBTRACTION] = new Operator("-", 2, true, Operator.PRECEDENCE_ADDITION) {
-            @Override
-            public double apply(final double... args) {
-                return args[0] - args[1];
-            }
-        };
-        BUILT_IN_OPERATORS[INDEX_UNARY_MINUS] = new Operator("-", 1, false, Operator.PRECEDENCE_UNARY_MINUS) {
-            @Override
-            public double apply(final double... args) {
-                return -args[0];
-            }
-        };
-        BUILT_IN_OPERATORS[INDEX_UNARY_PLUS] = new Operator("+", 1, false, Operator.PRECEDENCE_UNARY_PLUS) {
-            @Override
-            public double apply(final double... args) {
-                return args[0];
-            }
-        };
-        BUILT_IN_OPERATORS[INDEX_MULTIPLICATION] = new Operator("*", 2, true, Operator.PRECEDENCE_MULTIPLICATION) {
-            @Override
-            public double apply(final double... args) {
-                return args[0] * args[1];
-            }
-        };
-        BUILT_IN_OPERATORS[INDEX_DIVISION] = new Operator("/", 2, true, Operator.PRECEDENCE_DIVISION) {
-            @Override
-            public double apply(final double... args) {
-                if (args[1] == 0d) {
-                    throw new ArithmeticException("Division by zero!");
-                }
-                return args[0] / args[1];
-            }
-        };
-        BUILT_IN_OPERATORS[INDEX_POWER] = new Operator("^", 2, false, Operator.PRECEDENCE_POWER) {
-            @Override
-            public double apply(final double... args) {
-                return Math.pow(args[0], args[1]);
-            }
-        };
-        BUILT_IN_OPERATORS[INDEX_MODULO] = new Operator("%", 2, true, Operator.PRECEDENCE_MODULO) {
-            @Override
-            public double apply(final double... args) {
-                if (args[1] == 0d) {
-                    throw new ArithmeticException("Division by zero!");
-                }
-                return args[0] % args[1];
-            }
-        };
+        BUILT_IN_OPERATORS[INDEX_ADDITION] = new BuiltinOperator("+", 2, true, Operator.PRECEDENCE_ADDITION, Builtins.ADD);
+        BUILT_IN_OPERATORS[INDEX_SUBTRACTION] = new BuiltinOperator("-", 2, true, Operator.PRECEDENCE_ADDITION, Builtins.SUBTRACT);
+        BUILT_IN_OPERATORS[INDEX_UNARY_MINUS] = new BuiltinOperator("-", 1, false, Operator.PRECEDENCE_UNARY_MINUS, Builtins.NEGATE);
+        BUILT_IN_OPERATORS[INDEX_UNARY_PLUS] = new BuiltinOperator("+", 1, false, Operator.PRECEDENCE_UNARY_PLUS, Builtins.IDENTITY);
+        BUILT_IN_OPERATORS[INDEX_MULTIPLICATION] = new BuiltinOperator("*", 2, true, Operator.PRECEDENCE_MULTIPLICATION, Builtins.MULTIPLY);
+        BUILT_IN_OPERATORS[INDEX_DIVISION] = new BuiltinOperator("/", 2, true, Operator.PRECEDENCE_DIVISION, Builtins.DIVIDE);
+        BUILT_IN_OPERATORS[INDEX_POWER] = new BuiltinOperator("^", 2, false, Operator.PRECEDENCE_POWER, Builtins.POWER);
+        BUILT_IN_OPERATORS[INDEX_MODULO] = new BuiltinOperator("%", 2, true, Operator.PRECEDENCE_MODULO, Builtins.MODULO);
     }
 
     public static Operator getBuiltinOperator(final char symbol, final int numArguments) {
