@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>net.objecthunter</groupId>
     <artifactId>exp4j</artifactId>
-    <version>0.4.20-SNAPSHOT</version>
+    <version>0.4.20</version>
     <name>exp4j</name>
     <description>A simple mathematical expression evaluator for java.</description>
     <properties>
@@ -17,14 +17,6 @@
         <url>https://github.com/fasseg/exp4j</url>
         <tag>HEAD</tag>
     </scm>
-  <!--  
-  <parent>
-    <groupId>omsarabesolutions.maven</groupId>
-    <artifactId>maven-plugins-versions</artifactId>
-    <version>[3.26.5,3.26.99]</version>
-    <relativePath/>
-  </parent>
-    -->
     <distributionManagement>
         <snapshotRepository>
             <id>central-snapshots</id>
