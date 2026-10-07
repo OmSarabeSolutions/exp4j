@@ -1,0 +1,440 @@
+"""Builds the StarUML project: the logical model read from the sources, and the
+class and package diagrams. Components, interactions and state machines come
+from components.py, scenarios.py and statemachines.py."""
+import re
+
+from generate_staruml import (element, own, ref, clone_view, sub_view, graphviz, points_str,
+                              text_w, CHAR_W, BOLD_W, LINE_H)
+
+VIS = {'public': '+', 'protected': '#', 'private': '-', 'package': '~'}
+
+# Java packages, relative to net.objecthunter.exp4j ('.' is the root package)
+PACKAGE_ORDER = ['.', 'shuntingyard', 'tokenizer', 'function', 'operator']
+
+# Documentation for the classes whose source has no Javadoc
+DOCS = {
+    'Expression': 'A parsed expression, held as tokens in reverse Polish notation, with the values of its '
+                  'variables. Evaluated with an operand stack.',
+    'FunctionToken': 'A call to a Function (built-in or user-defined) in the token stream.',
+    'OpenParenthesesToken': 'Represents open parentheses: (, [ or {.',
+    'Tokenizer': 'Splits the infix expression into tokens; resolves function and variable names, unary versus '
+                 'binary operators, and inserts implicit multiplications.',
+    'Operators': 'The built-in operators: + - * / ÷ ^ % and unary + and -.',
+}
+
+# External types named by the model: (name, UML type, package, documentation)
+EXTERNAL = [
+    ('IllegalArgumentException', 'UMLClass', 'java.lang', 'Superclass of exp4j\'s parse errors.'),
+    ('ExecutorService', 'UMLInterface', 'java.util.concurrent', 'Runs Expression.evaluateAsync.'),
+    ('Future', 'UMLInterface', 'java.util.concurrent', 'Result of Expression.evaluateAsync.'),
+]
+
+# Class diagrams: (diagram name, package owning it, focus classes shown with their members,
+#                  documentation, show members)
+CLASS_DIAGRAMS = [
+    ('01 · Class overview', '.',
+     ['ExpressionBuilder', 'Expression', 'ValidationResult', 'ArrayStack', 'ShuntingYard', 'Tokenizer', 'Token',
+      'Function', 'Functions', 'Operator', 'Operators'],
+     'The whole library at a glance, members hidden. ExpressionBuilder turns a string into an Expression '
+     '(Tokenizer + ShuntingYard); Expression evaluates its RPN tokens on an ArrayStack, using Function and '
+     'Operator.', False),
+    ('02 · Public API', '.',
+     ['ExpressionBuilder', 'Expression', 'ValidationResult'],
+     'What client code uses: configure an ExpressionBuilder (variables, user functions and operators, '
+     'implicit multiplication), build() an Expression, set its variables, validate() and evaluate().', True),
+    ('03 · Functions and operators', 'function',
+     ['Function', 'Functions', 'Operator', 'Operators'],
+     'Extension points: subclass Function or Operator and implement apply(double...). Functions and Operators '
+     'hold the built-in instances, looked up by name or symbol.', True),
+    ('04 · Tokens', 'tokenizer',
+     ['Token', 'NumberToken', 'VariableToken', 'FunctionToken', 'OperatorToken', 'OpenParenthesesToken',
+      'CloseParenthesesToken', 'ArgumentSeparatorToken'],
+     'The token hierarchy: Token.getType() returns one of the TOKEN_* constants, which the shunting-yard '
+     'algorithm and Expression switch on.', True),
+    ('05 · Parsing and evaluation', 'shuntingyard',
+     ['ShuntingYard', 'Tokenizer', 'UnknownFunctionOrVariableException', 'Expression', 'ArrayStack'],
+     'The pipeline: Tokenizer produces infix tokens, ShuntingYard.convertToRPN reorders them in reverse Polish '
+     'notation, Expression.evaluate consumes them with an ArrayStack of doubles.', True),
+]
+
+
+class Model:
+    """The project being built, and indexes into it."""
+
+    def __init__(self, classes, sizes):
+        self.classes = classes
+        self.sizes = sizes
+        self.project = element('Project', None, 'exp4j',
+                               documentation='UML model of exp4j, generated from the sources '
+                                             '(docs/tools/staruml/generate_staruml.py).')
+        self.elements = {}        # class name -> UML element
+        self.packages = {}        # 'tokenizer' -> UML package ('.' is the root)
+        self.ops = {}             # (class, op name) -> UML operation
+        self.relations = []       # (kind, source name, target name, element)
+        self.view_of = {}
+
+    # ---------------------------------------------------------------- views
+
+    def size(self, view, w, h):
+        """The measured size of `view` if known, else the estimate."""
+        s = self.sizes.get(view['_id'])
+        return (s[0], s[1]) if s else (w, h)
+
+    def node(self, diagram, view):
+        own(diagram, view, 'ownedViews')
+        return view
+
+    def edge(self, diagram, type_, model, tail, head, pts=None, line_style=1):
+        v = clone_view(type_, diagram, model)
+        v['tail'] = ref(tail)
+        v['head'] = ref(head)
+        v['lineStyle'] = line_style
+        if pts:
+            v['points'] = points_str(pts)
+        for s in v.get('subViews', []):
+            if s['_type'] == 'EdgeLabelView':
+                s['hostEdge'] = ref(v)
+        return own(diagram, v, 'ownedViews')
+
+
+def type_ref(model, type_text):
+    """A reference to the project class named by `type_text`, or the text itself."""
+    t = type_text.strip()
+    if t in model.elements:
+        return ref(model.elements[t])
+    return t
+
+
+def build_logical(model, root):
+    classes = model.classes
+    net = own(root, element('UMLPackage', root, 'net'))
+    oh = own(net, element('UMLPackage', net, 'objecthunter'))
+    fp = own(oh, element('UMLPackage', oh, 'exp4j',
+                         documentation='Root package: the public API (ExpressionBuilder, Expression, '
+                                       'ValidationResult) and the evaluation stack.'))
+    model.packages['.'] = fp
+    model.packages[''] = fp
+    for pkg in sorted({c['pkg'] for c in classes.values()} - {'.'}, key=lambda p: (p.count('.'), p)):
+        parent = fp
+        path = ''
+        for part in pkg.split('.'):
+            path = f'{path}.{part}' if path else part
+            if path not in model.packages:
+                model.packages[path] = own(parent, element('UMLPackage', parent, part))
+            parent = model.packages[path]
+
+    # External types the model names
+    ext = own(root, element('UMLPackage', root, 'JDK',
+                            documentation='Types of the Java platform named by the model.'))
+    for name, type_, pkg, doc in EXTERNAL:
+        model.elements[name] = own(ext, element(type_, ext, name, documentation=f'{pkg}.{name} — {doc}'))
+
+    # Classifiers first (so that types can reference each other)
+    for c in classes.values():
+        pkg = model.packages[c['pkg']]
+        t = {'interface': 'UMLInterface', 'enum': 'UMLEnumeration'}.get(c['kind'], 'UMLClass')
+        e = element(t, pkg, c['name'], documentation=c['doc'] or DOCS.get(c['name'], ''))
+        if c['kind'] == 'record':
+            e['stereotype'] = 'record'
+        if c['abstract']:
+            e['isAbstract'] = True
+        if c['final']:
+            e['isLeaf'] = True
+        model.elements[c['name']] = own(pkg, e)
+
+    # Members
+    for c in classes.values():
+        e = model.elements[c['name']]
+        for m in c['members']:
+            if m['kind'] == 'literal':
+                own(e, element('UMLEnumerationLiteral', e, m['name']), 'literals')
+            elif m['kind'] == 'field':
+                if m['static'] and m['visibility'] == 'private':
+                    continue        # internal constants
+                a = element('UMLAttribute', e, m['name'], visibility=m['visibility'], type=type_ref(model, m['type']),
+                            isStatic=m['static'], isReadOnly=m['final'])
+                if m['static'] and re.fullmatch(r'-?[\d.]+[dDfFlL]?', m['default']):
+                    a['defaultValue'] = m['default']
+                own(e, a, 'attributes')
+            elif m['kind'] in ('op', 'ctor'):
+                if m['visibility'] == 'private':
+                    continue
+                o = element('UMLOperation', e, m['name'], visibility=m['visibility'], isStatic=m['static'],
+                            isAbstract=m['abstract'])
+                if m['kind'] == 'ctor':
+                    o['stereotype'] = 'create'
+                for pname, ptype in m['params']:
+                    own(o, element('UMLParameter', o, pname, type=type_ref(model, ptype), direction='in'),
+                        'parameters')
+                if m['kind'] == 'op' and m['type'] != 'void':
+                    own(o, element('UMLParameter', o, '', type=type_ref(model, m['type']), direction='return'),
+                        'parameters')
+                own(e, o, 'operations')
+                model.ops.setdefault((c['name'], m['name']), o)
+
+    # Relationships
+    for c in classes.values():
+        src = model.elements[c['name']]
+        related = set()
+        for sup in c['extends']:
+            if sup in model.elements:
+                kind = 'UMLGeneralization'
+                r = own(src, element(kind, src, None, source=ref(src), target=ref(model.elements[sup])))
+                model.relations.append(('generalization', c['name'], sup, r))
+                related.add(sup)
+        for itf in c['implements']:
+            if itf in model.elements:
+                r = own(src, element('UMLInterfaceRealization', src, None, source=ref(src),
+                                     target=ref(model.elements[itf])))
+                model.relations.append(('realization', c['name'], itf, r))
+                related.add(itf)
+        for m in c['members']:
+            if m['kind'] != 'field' or m['static']:
+                continue
+            targets = [n for n in re.findall(r'\w+', m['type']) if n in classes and n != c['name']]
+            for t in targets[:1]:
+                many = re.search(r'\b(List|Set|Collection|Map|Iterable)\b|\[\]', m['type'])
+                optional = re.search(r'\bOptional\b', m['type'])
+                composite = m['default'].startswith('new ')
+                a = element('UMLAssociation', src, None)
+                a['end1'] = element('UMLAssociationEnd', a, '', reference=ref(src), navigable=False,
+                                    aggregation='composite' if composite else 'none')
+                a['end2'] = element('UMLAssociationEnd', a, m['name'], reference=ref(model.elements[t]),
+                                    navigable=True, visibility=m['visibility'],
+                                    multiplicity='0..*' if many else '0..1' if optional else '')
+                own(src, a)
+                model.relations.append(('association', c['name'], t, a))
+                related.add(t)
+        for d in c['deps']:
+            if d not in related:
+                r = own(src, element('UMLDependency', src, None, source=ref(src), target=ref(model.elements[d])))
+                model.relations.append(('dependency', c['name'], d, r))
+
+    # Package dependencies, from the class ones
+    pkg_deps = set()
+    for c in classes.values():
+        for d in c['deps']:
+            a, b = c['pkg'], classes[d]['pkg']
+            if a != b:
+                pkg_deps.add((a, b))
+    model.pkg_deps = {}
+    for a, b in sorted(pkg_deps):
+        pa = model.packages[a]
+        model.pkg_deps[(a, b)] = own(pa, element('UMLDependency', pa, None, source=ref(pa),
+                                                 target=ref(model.packages[b])))
+    return fp
+
+
+# ---------------------------------------------------------------- class diagrams
+
+def member_lines(model, name, with_members):
+    c = model.classes.get(name)
+    e = model.elements[name]
+    attrs, ops = [], []
+    if with_members:
+        for a in e.get('attributes', []):
+            t = a['type'] if isinstance(a['type'], str) else model_name(model, a['type'])
+            attrs.append(f"{VIS[a['visibility']]}{a['name']}: {t}")
+        for o in e.get('operations', []):
+            ps = [p for p in o.get('parameters', []) if p['direction'] == 'in']
+            ret = [p for p in o.get('parameters', []) if p['direction'] == 'return']
+            sig = ', '.join(f"{p['name']}: {p['type'] if isinstance(p['type'], str) else model_name(model, p['type'])}"
+                            for p in ps)
+            r = ret[0]['type'] if ret else None
+            r = (r if isinstance(r, str) else model_name(model, r)) if r else ''
+            ops.append(f"{VIS[o['visibility']]}{o['name']}({sig}){': ' + r if r else ''}")
+    stereo = e.get('stereotype') or ('interface' if e['_type'] == 'UMLInterface' else None)
+    return stereo, attrs, ops
+
+
+def model_name(model, r):
+    for n, e in model.elements.items():
+        if e['_id'] == r['$ref']:
+            return n
+    return '?'
+
+
+def class_view(model, diagram, name, with_members):
+    e = model.elements[name]
+    t = {'UMLInterface': 'UMLInterfaceView', 'UMLEnumeration': 'UMLEnumerationView'}.get(e['_type'], 'UMLClassView')
+    v = clone_view(t, diagram, e)
+    stereo, attrs, ops = member_lines(model, name, with_members)
+    v['suppressAttributes'] = not with_members
+    v['suppressOperations'] = not with_members
+    if t == 'UMLInterfaceView':
+        v['stereotypeDisplay'] = 'label'
+    w = max([text_w(name, BOLD_W)] + [text_w(x) for x in attrs + ops] + [text_w(f'«{stereo}»') if stereo else 0]) + 24
+    h = 26 + (LINE_H if stereo else 0)
+    if e.get('isLeaf'):
+        h += LINE_H  # the {leaf} property line under the name
+    if with_members:
+        h += 10 + LINE_H * len(attrs) + 10 + LINE_H * len(ops)
+    estimated_h = h
+    w, h = model.size(v, w, h)
+    if e.get('isLeaf'):
+        # The measurement leaves out the {leaf} line, which is still drawn.
+        h = max(h, estimated_h)
+    v['width'], v['height'] = round(w), round(h)
+    return model.node(diagram, v)
+
+
+def layout_and_link(model, diagram, views, relations, rankdir='TB', ranksep=0.8, nodesep=0.45):
+    """Places `views` ({name: view}) with Graphviz, then draws `relations`
+    ([(kind, a, b, element)]) between them."""
+    edge_specs = []
+    for kind, a, b, rel in relations:
+        upper, lower = (b, a) if kind in ('generalization', 'realization') else (a, b)
+        edge_specs.append((upper, lower, kind, a, b, rel))
+    nodes = {n: (v['width'], v['height']) for n, v in views.items()}
+    centers, routes = graphviz(nodes, [(u, l) for u, l, *_ in edge_specs], rankdir=rankdir,
+                               ranksep=ranksep, nodesep=nodesep)
+    margin = 40
+    for n, v in views.items():
+        x, y = centers[n]
+        v['left'] = round(x - v['width'] / 2 + margin)
+        v['top'] = round(y - v['height'] / 2 + margin + 30)
+    view_type = {'generalization': 'UMLGeneralizationView', 'realization': 'UMLInterfaceRealizationView',
+                 'association': 'UMLAssociationView', 'dependency': 'UMLDependencyView'}
+    for i, (upper, lower, kind, a, b, rel) in enumerate(edge_specs):
+        pts = [(x + margin, y + margin + 30) for x, y in routes[i]]
+        if (upper, lower) != (a, b):
+            pts = list(reversed(pts))
+        model.edge(diagram, view_type[kind], rel, views[a], views[b], pts)
+
+
+def class_diagram(model, name, owner_pkg, focus, doc, with_members):
+    owner = model.packages[owner_pkg] if owner_pkg in model.packages else model.packages['']
+    d = own(owner, element('UMLClassDiagram', owner, name, documentation=doc, defaultDiagram=False))
+    shown = list(focus)
+    # Direct supertypes and association targets of the focus classes give the context
+    for kind, a, b, _ in model.relations if with_members else []:
+        if a in focus and kind in ('generalization', 'realization', 'association') and b not in shown:
+            shown.append(b)
+    views = {n: class_view(model, d, n, with_members and n in focus) for n in shown}
+    rels = [r for r in model.relations if r[1] in views and r[2] in views and r[1] != r[2]
+            and (with_members or r[0] != 'dependency' or (r[1] in focus and r[2] in focus))]
+    layout_and_link(model, d, views, rels)
+    return d
+
+
+# ---------------------------------------------------------------- package diagrams
+
+def package_diagram(model, name, owner, groups, doc):
+    """groups: {label: [java packages]} - one package view per label."""
+    d = own(owner, element('UMLPackageDiagram', owner, name, documentation=doc))
+    views = {}
+    for label, pkgs in groups.items():
+        e = model.packages[pkgs[0]] if len(pkgs) == 1 else model.layer_packages[label]
+        v = clone_view('UMLPackageView', d, e)
+        w, h = model.size(v, max(text_w(label, BOLD_W) + 40, 110), 60)
+        v['width'], v['height'] = round(w), round(h)
+        views[label] = model.node(d, v)
+    owner_of = {p: label for label, pkgs in groups.items() for p in pkgs}
+    rels, seen = [], set()
+    for (a, b), dep in model.pkg_deps.items():
+        la, lb = owner_of.get(a), owner_of.get(b)
+        if la and lb and la != lb and (la, lb) not in seen:
+            seen.add((la, lb))
+            if all(len(groups[x]) == 1 for x in (la, lb)):
+                rels.append(('dependency', la, lb, dep))
+            else:
+                src = model.layer_packages[la] if len(groups[la]) > 1 else model.packages[groups[la][0]]
+                tgt = model.layer_packages[lb] if len(groups[lb]) > 1 else model.packages[groups[lb][0]]
+                key = (la, lb)
+                if key not in model.layer_deps:
+                    model.layer_deps[key] = own(src, element('UMLDependency', src, None, source=ref(src),
+                                                             target=ref(tgt)))
+                rels.append(('dependency', la, lb, model.layer_deps[key]))
+    layout_and_link(model, d, views, rels, ranksep=0.9, nodesep=0.35)
+    return d
+
+
+# ---------------------------------------------------------------- overview
+
+# Sections of the overview: (heading, diagram types), one column each
+OVERVIEW_SECTIONS = [
+    ('Classes', ['UMLClassDiagram']),
+    ('Packages and components', ['UMLPackageDiagram', 'UMLComponentDiagram']),
+    ('Sequences', ['UMLSequenceDiagram']),
+    ('State machines', ['UMLStatechartDiagram']),
+]
+
+
+def all_diagrams(o, out=None):
+    out = [] if out is None else out
+    if isinstance(o, dict):
+        if o.get('_type', '').endswith('Diagram'):
+            out.append(o)
+        for v in o.values():
+            all_diagrams(v, out)
+    elif isinstance(o, list):
+        for v in o:
+            all_diagrams(v, out)
+    return out
+
+
+def overview_diagram(model, owner):
+    """00 · Overview: the diagram StarUML opens first, with a hyperlink to every
+    other diagram, one column per section."""
+    diagrams = sorted(all_diagrams(model.project), key=lambda d: d['name'])
+    d = own(owner, element('UMLPackageDiagram', owner, '00 · Overview', defaultDiagram=True,
+                           documentation='Entry point of the model: a hyperlink to every diagram, by kind. '
+                                         'Double-click a link to open its diagram.'))
+    title = clone_view('UMLTextView', d, None, text='exp4j — UML model', font='Arial;16;1')
+    title['left'], title['top'], title['width'], title['height'] = 40, 30, 400, 24
+    model.node(d, title)
+    x, top = 40, 80
+    for heading, types in OVERVIEW_SECTIONS:
+        section = [g for g in diagrams if g['_type'] in types]
+        if not section:
+            continue
+        links = []
+        for g in section:
+            link = own(owner, element('Hyperlink', owner, g['name'], reference=ref(g)))
+            v = clone_view('HyperlinkView', d, link)
+            for sv in v['subViews']:
+                if sv['_id'] == v['nameLabel']['$ref']:
+                    sv['text'] = g['name']
+                else:
+                    sv['text'] = 'link'
+                    sv['font'] = 'Arial;13;1'
+            w, h = model.size(v, text_w(g['name']) + 50, 23)
+            v['width'], v['height'] = round(w), round(h)
+            links.append(v)
+        col_w = max([v['width'] for v in links] + [text_w(heading, BOLD_W) + 10])
+        head = clone_view('UMLTextView', d, None, text=heading, font='Arial;13;1')
+        head['left'], head['top'], head['width'], head['height'] = x, top, round(col_w), 20
+        model.node(d, head)
+        y = top + 32
+        for v in links:
+            v['left'], v['top'] = x, y
+            model.node(d, v)
+            y += 34
+        x += col_w + 60
+    return d
+
+
+def build(classes, sizes):
+    import components
+    import scenarios
+    import statemachines
+
+    model = Model(classes, sizes)
+    project = model.project
+    logical = own(project, element('UMLModel', project, 'Logical View',
+                                   documentation='Packages, classes and relationships, read from src/main/java.'))
+    fp = build_logical(model, logical)
+
+    for name, pkg, focus, doc, members in CLASS_DIAGRAMS:
+        class_diagram(model, name, pkg, focus, doc, members)
+
+    model.layer_packages, model.layer_deps = {}, {}
+    package_diagram(model, '10 · Package dependencies', fp, {p: [p] for p in PACKAGE_ORDER},
+                    'A dependency A → B: a class of A names a class of B. function and operator depend on '
+                    'nothing; the root package (API) sits on top.')
+
+    components.build(model, project)
+    scenarios.build(model, project)
+    statemachines.build(model, project)
+    overview_diagram(model, fp)
+    return project

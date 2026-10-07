@@ -35,9 +35,9 @@ public class Expression {
     private static Map<String, Double> createDefaultVariables() {
         final Map<String, Double> vars = new HashMap<>(4);
         vars.put("pi", Math.PI);
-        vars.put("π", Math.PI);
-        vars.put("φ", 1.61803398874d);
-        vars.put("e", Math.E);
+        vars.put("π", Math.PI);  		    // 3.141592653589793
+        vars.put("φ", 1.618033988749895d);  // golden ratio (1 + √5) / 2
+        vars.put("e", Math.E);  			// 2.718281828459045
         return vars;
     }
 

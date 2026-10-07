@@ -1,0 +1,109 @@
+# UML model (StarUML)
+
+[`exp4j.mdj`](exp4j.mdj) is the UML model of exp4j in **StarUML** format. To open it in StarUML, use **File ▸ Open…**. It opens on **`00 · Overview`**, which has a hyperlink to every other diagram.
+
+The model is generated from the sources, and you can also edit it by hand in StarUML (layout, notes, extra diagrams). When the model is regenerated, changes from the code are merged in and your manual edits are kept (see [Updating](#updating)).
+
+The images below were rendered from the `.mdj` file by StarUML's own engine.
+
+## Contents
+
+| Model | Content |
+|---|---|
+| **Logical View** | Packages `net.objecthunter.exp4j.*` and their 19 classes, with documentation (the first sentence of the Javadoc), attributes, and non-private operations with their parameters. Relationships: generalizations, associations (from fields, with role and multiplicity) and usage dependencies. A **JDK** package holds the external types named by the model (`IllegalArgumentException`, `ExecutorService`, `Future`). |
+| ↳ state machines | Each one is stored under the class whose behaviour it describes: `Tokenizer` and `Expression`. |
+| **Component View** | One component per Java package, a client application, the provided and required interfaces, and the libraries (JDK, JUnit, Logback). |
+| **Dynamic View — interactions** | The *Client code* actor and the *Scenarios* collaboration, with one interaction and one sequence diagram per scenario. Messages are linked to the real operations where they exist. |
+
+Every diagram has a **documentation** text, shown in StarUML's *Documentation* panel.
+
+## Diagrams
+
+### 00 · Overview
+
+[`00 · Overview`](images/00_Overview.png) is the entry point. It has a hyperlink to every other diagram, in four columns: classes, packages and components, sequences, and state machines. Double-click a link in StarUML to open its diagram. The generator builds it, so a new diagram gets its link automatically.
+
+### Classes
+
+| Diagram | Content |
+|---|---|
+| [01 · Class overview](images/01_Class_overview.png) | All the main classes, members hidden, with their associations and dependencies. |
+| [02 · Public API](images/02_Public_API.png) | `ExpressionBuilder`, `Expression`, `ValidationResult`. |
+| [03 · Functions and operators](images/03_Functions_and_operators.png) | The `Function` and `Operator` extension points, and the `Functions` and `Operators` built-ins. |
+| [04 · Tokens](images/04_Tokens.png) | `Token` and its seven subclasses. |
+| [05 · Parsing and evaluation](images/05_Parsing_and_evaluation.png) | `Tokenizer` → `ShuntingYard` → `Expression` + `ArrayStack`, and `UnknownFunctionOrVariableException`. |
+
+In diagrams 02 to 05, the classes of the theme are shown with their members. Their supertypes and the types of their fields appear around them for context, without members.
+
+### Packages and components
+
+| Diagram | Content |
+|---|---|
+| [10 · Package dependencies](images/10_Package_dependencies.png) | The five Java packages. A dependency A → B means that a class of A names a class of B. |
+| [11 · Components — provided and required interfaces](images/11_Components_provided_and_required_interfaces.png) | *Expression API* (provided by exp4j) and *Custom functions and operators* (provided by the client). |
+| [12 · Components — dependencies and libraries](images/12_Components_dependencies_and_libraries.png) | The dependencies between the components, the JDK, and the test libraries. |
+
+### Sequences
+
+| Diagram | Scenario |
+|---|---|
+| [20 · Build an expression](images/20_Sequence_Build_an_expression.png) | `ExpressionBuilder.build()`: constants, name checks, `ShuntingYard.convertToRPN` reading from `Tokenizer`, creation of the `Expression`. |
+| [21 · Evaluate an expression](images/21_Sequence_Evaluate_an_expression.png) | `evaluate()` walking the RPN tokens with an `ArrayStack`. |
+| [22 · Validate an expression](images/22_Sequence_Validate_an_expression.png) | `validate()`: variables set, then the operand counter. |
+| [23 · Asynchronous evaluation](images/23_Sequence_Asynchronous_evaluation.png) | `evaluateAsync(executor)`, and copies of an `Expression` for use across threads. |
+
+### State machines
+
+| Diagram | Class | Behaviour |
+|---|---|---|
+| [30 · Tokenizer](images/30_States_Tokenizer.png) | `Tokenizer` | *Expecting an operand* or *After an operand*: decides unary vs binary `+`/`-` and when to insert an implicit `*`. |
+| [31 · Expression](images/31_States_Expression.png) | `Expression` | *Variables missing* or *Ready*; `clearVariables()` also removes the constants. |
+
+## Updating
+
+Whenever the code changes, run this from the project root:
+
+```bash
+docs/tools/staruml/build.sh
+```
+
+The script:
+
+1. merges the model generated from `src/main/java` into `exp4j.mdj`;
+2. measures the new views the way StarUML draws them, so they are sized and placed accurately;
+3. checks that nothing that already existed was changed (`check_preserved.py` should report **0 modified**; a view whose element was renamed or removed from the code is reported as gone);
+4. re-renders `images/`.
+
+| Situation | Effect of an update |
+|---|---|
+| A view you moved, resized, recolored or re-routed, or a compartment you hid | **Kept as is.** |
+| A view, note or diagram you added by hand | **Kept.** |
+| A generated view you deleted | **Not put back.** `exp4j.generated.json` records what the last generation produced. |
+| A class, member or relationship that is new in the code | **Added.** Its view is placed below the existing content of the diagram. |
+| An element removed from the code | **Removed**, together with its views, and reported. |
+
+> `python3 docs/tools/staruml/generate_staruml.py --fresh` rebuilds the model from scratch and **discards all manual edits**.
+
+### Requirements
+
+- **Python 3** and **Graphviz** (`dot`).
+- **git**, **Node.js** and **npm**, to measure the views and render the images. On first use, the script downloads StarUML's engine, [`staruml/metadata-json`](https://github.com/staruml/metadata-json), into `$STARUML_ENGINE` (default `~/.cache/function-plotter/metadata-json`, shared with the function-plotter project).
+
+### Generated parts and hand-written parts
+
+| Part | Source |
+|---|---|
+| Packages, classes, members, relationships, documentation | Read from `src/main/java` on every run, so they always follow the code. `DOCS` in `model_builder.py` supplies documentation for classes that have no Javadoc. |
+| Which classes appear in which class diagram | `CLASS_DIAGRAMS` in `docs/tools/staruml/model_builder.py` |
+| Components | `docs/tools/staruml/components.py` |
+| Sequences | `docs/tools/staruml/scenarios.py` |
+| State machines | `docs/tools/staruml/statemachines.py` |
+
+Components, sequences and state machines describe the code's behaviour by hand, so **update them when that behaviour changes**. If an operation is renamed, a message that called it simply loses its link to it.
+
+## How the file is produced and checked
+
+- **Views** are copies of `view-templates.json`, which records each view type exactly as StarUML's constructors create it.
+- **Layout**: Graphviz places the classes, packages, components and states. Sequence diagrams are laid out by the generator itself.
+- **Stable ids**: each element and view keeps its id from one generation to the next, so diffs stay readable.
+- **Check**: `render.js` reloads the file with StarUML's engine and draws every diagram. It fails if any element or view is invalid.

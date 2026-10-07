@@ -1575,7 +1575,7 @@ public class ExpressionBuilderTest {
     @Test
     public void testDocumentationExample4() {
         String expr = "pi+π+e+φ";
-        double expected = 2 * Math.PI + Math.E + 1.61803398874d;
+        double expected = 2 * Math.PI + Math.E + (1 + Math.sqrt(5)) / 2;
         Expression e = new ExpressionBuilder(expr).build();
         assertEquals(expected, e.evaluate(), 0d);
     }

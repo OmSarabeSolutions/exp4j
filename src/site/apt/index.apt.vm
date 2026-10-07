@@ -142,7 +142,7 @@ In order to evaluate an expression. The <<
                                                         <
                                                         <e>> the value of Euler's number e,
                                                             <
-                                                            <φ>> the value of the golden ratio (1.61803398874)
+                                                            <φ>> the value of the golden ratio (1.618033988749895)
 
                                                                 ** Example 4
 
@@ -150,7 +150,7 @@ In order to evaluate an expression. The <<
 
                                                                 +--
                                                                 String expr = "pi+π+e+φ";
-                                                                double expected = 2*Math.PI + Math.E + 1.61803398874d;
+                                                                double expected = 2*Math.PI + Math.E + (1 + Math.sqrt(5)) / 2;
                                                                 Expression e = new ExpressionBuilder(expr).build();
                                                                 assertEquals(expected, e.evaluate(),0d);
                                                                 +--

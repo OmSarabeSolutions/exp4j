@@ -3,13 +3,13 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>net.objecthunter</groupId>
     <artifactId>exp4j</artifactId>
-    <version>0.4.9-SNAPSHOT</version>
+    <version>0.4.20-SNAPSHOT</version>
     <name>exp4j</name>
     <description>A simple mathematical expression evaluator for java.</description>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
+        <maven.compiler.source>26</maven.compiler.source>
+        <maven.compiler.target>26</maven.compiler.target>
     </properties>
     <scm>
         <connection>scm:git:http://github.com/fasseg/exp4j.git</connection>
@@ -17,6 +17,14 @@
         <url>https://github.com/fasseg/exp4j</url>
         <tag>HEAD</tag>
     </scm>
+  <!--  
+  <parent>
+    <groupId>omsarabesolutions.maven</groupId>
+    <artifactId>maven-plugins-versions</artifactId>
+    <version>[3.26.5,3.26.99]</version>
+    <relativePath/>
+  </parent>
+    -->
     <distributionManagement>
         <snapshotRepository>
             <id>central-snapshots</id>
@@ -118,13 +126,13 @@
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>4.11</version>
+            <version>4.13.2</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
-            <version>1.1.1</version>
+            <version>1.6.5</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -165,7 +173,12 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>3.1.1</version>
+                <version>3.12.0</version>
+                <configuration>
+                   <maxmemory>512m</maxmemory>
+                   <doclint>all,-missing</doclint>
+                </configuration>
+                
             </plugin>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
@@ -192,12 +205,12 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-deploy-plugin</artifactId>
-                <version>2.8.1</version>
+                <version>3.2.0</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
-                <version>2.2.1</version>
+                <version>3.4.0</version>
                 <executions>
                     <execution>
                         <id>attach-sources</id>
@@ -210,29 +223,17 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>3.1.1</version>
+                <version>3.12.0</version>
                 <configuration>
                     <source>${maven.compiler.source}</source>
-                </configuration>
+                   <maxmemory>512m</maxmemory>
+                   <doclint>all,-missing</doclint>
+                 </configuration>
                 <executions>
                     <execution>
                         <id>attach-javadocs</id>
                         <goals>
                             <goal>jar</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-gpg-plugin</artifactId>
-                <version>1.5</version>
-                <executions>
-                    <execution>
-                        <id>sign-artifacts</id>
-                        <phase>verify</phase>
-                        <goals>
-                            <goal>sign</goal>
                         </goals>
                     </execution>
                 </executions>
@@ -245,18 +246,51 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-release-plugin</artifactId>
-                <version>2.5</version>
+                <version>3.3.1</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.1</version>
-                <configuration>
-                    <source>1.8</source>
-                    <target>1.8</target>
-                    <encoding>${project.build.sourceEncoding}</encoding>
-                </configuration>
+                <version>3.15.0</version>
+                <executions>
+                    <execution>
+                        <!-- PerformanceTest uses javax.script; the library itself does not -->
+                        <id>default-testCompile</id>
+                        <configuration>
+                            <compilerArgs>
+                                <arg>--add-modules</arg>
+                                <arg>java.scripting</arg>
+                                <arg>--add-reads</arg>
+                                <arg>net.objecthunter.exp4j=java.scripting</arg>
+                            </compilerArgs>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
+    <profiles>
+        <profile>
+            <!-- Signing is only needed for publishing: mvn deploy -Prelease -->
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>3.2.7</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
