@@ -39,6 +39,8 @@ public class ExpressionBuilder {
 
     private boolean implicitMultiplication = true;
 
+    private EvaluationStrategy strategy = EvaluationStrategy.INTERPRETED;
+
     /**
      * Create a new ExpressionBuilder instance and initialize it with a given expression string.
      *
@@ -130,6 +132,20 @@ public class ExpressionBuilder {
     }
 
     /**
+     * Select how the built {@link Expression} is evaluated. Defaults to {@link EvaluationStrategy#INTERPRETED}.
+     *
+     * @param strategy the evaluation strategy
+     * @return the ExpressionBuilder instance
+     */
+    public ExpressionBuilder strategy(EvaluationStrategy strategy) {
+        if (strategy == null) {
+            throw new IllegalArgumentException("The evaluation strategy can not be null");
+        }
+        this.strategy = strategy;
+        return this;
+    }
+
+    /**
      * Add an {@link net.objecthunter.exp4j.operator.Operator} which should be available for use in the expression
      *
      * @param operator the custom {@link net.objecthunter.exp4j.operator.Operator} to add
@@ -200,7 +216,7 @@ public class ExpressionBuilder {
         }
 
         return new Expression(ShuntingYard.convertToRPN(this.expression, this.userFunctions, this.userOperators,
-                this.variableNames, this.implicitMultiplication), this.userFunctions.keySet());
+                this.variableNames, this.implicitMultiplication), this.userFunctions.keySet(), this.strategy);
     }
 
 }

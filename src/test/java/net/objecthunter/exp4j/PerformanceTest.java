@@ -27,6 +27,9 @@ public class PerformanceTest {
     private static final long BENCH_TIME = 2L;
     private static final String EXPRESSION = "log(x) - y * (sqrt(x^cos(y)))";
 
+    /* results are accumulated here so the JIT cannot eliminate the benchmarked computation as dead code */
+    private static volatile double sink;
+
     @Test
     public void testBenches() throws Exception {
         StringBuffer sb = new StringBuffer();
@@ -43,9 +46,15 @@ public class PerformanceTest {
         System.out.print(sb.toString());
         sb.setLength(0);
 
-        int db = benchDouble();
+        int db = benchDouble(EvaluationStrategy.INTERPRETED);
         double dbRate = (double) db / (double) BENCH_TIME;
-        fmt.format("| %-22s | %25.2f | %22.2f %% |%n", "exp4j", dbRate, dbRate * 100 / mathRate);
+        fmt.format("| %-22s | %25.2f | %22.2f %% |%n", "exp4j (interpreted)", dbRate, dbRate * 100 / mathRate);
+        System.out.print(sb.toString());
+        sb.setLength(0);
+
+        int bc = benchDouble(EvaluationStrategy.BYTECODE);
+        double bcRate = (double) bc / (double) BENCH_TIME;
+        fmt.format("| %-22s | %25.2f | %22.2f %% |%n", "exp4j (bytecode)", bcRate, bcRate * 100 / mathRate);
         System.out.print(sb.toString());
         sb.setLength(0);
 
@@ -56,11 +65,12 @@ public class PerformanceTest {
         System.out.print(sb.toString());
     }
 
-    private int benchDouble() {
+    private int benchDouble(EvaluationStrategy strategy) {
         final Expression expression = new ExpressionBuilder(EXPRESSION)
                 .variables("x", "y")
+                .strategy(strategy)
                 .build();
-        double val;
+        double val = 0;
         Random rnd = new Random();
         long timeout = BENCH_TIME;
         long time = System.currentTimeMillis() + (1000 * timeout);
@@ -68,24 +78,25 @@ public class PerformanceTest {
         while (time > System.currentTimeMillis()) {
             expression.setVariable("x", rnd.nextDouble());
             expression.setVariable("y", rnd.nextDouble());
-            val = expression.evaluate();
+            val += expression.evaluate();
             count++;
         }
-        double rate = count / timeout;
+        sink = val;
         return count;
     }
 
     private int benchJavaMath() {
         long time = System.currentTimeMillis() + (1000 * BENCH_TIME);
-        double x, y, val, rate;
+        double x, y, val = 0;
         int count = 0;
         Random rnd = new Random();
         while (time > System.currentTimeMillis()) {
             x = rnd.nextDouble();
             y = rnd.nextDouble();
-            val = Math.log(x) - y * (Math.sqrt(Math.pow(x, Math.cos(y))));
+            val += Math.log(x) - y * (Math.sqrt(Math.pow(x, Math.cos(y))));
             count++;
         }
+        sink = val;
         return count;
     }
 

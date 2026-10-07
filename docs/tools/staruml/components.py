@@ -9,8 +9,9 @@ COMPONENTS = {
     'client': ('Client application', 'application', 'Any Java code that evaluates expressions with exp4j. It may '
                'also contribute its own functions and operators.',
                ['Custom functions and operators'], ['Expression API']),
-    'api': ('API', 'subsystem', 'net.objecthunter.exp4j — ExpressionBuilder, Expression, ValidationResult, '
-            'ArrayStack. Builds expressions, holds variables, validates and evaluates.',
+    'api': ('API', 'subsystem', 'net.objecthunter.exp4j — ExpressionBuilder, EvaluationStrategy, Expression, '
+            'ValidationResult, and the evaluators CompiledExpression (interpreter) and BytecodeCompiler (hidden '
+            'classes). Builds expressions, holds variables, validates and evaluates.',
             ['Expression API'], ['Custom functions and operators']),
     'shunting': ('Shunting yard', 'subsystem', 'net.objecthunter.exp4j.shuntingyard — ShuntingYard: infix tokens '
                  'to reverse Polish notation.', [], []),
@@ -20,15 +21,20 @@ COMPONENTS = {
                  'Functions (31 built-ins).', [], []),
     'operator': ('Operators', 'subsystem', 'net.objecthunter.exp4j.operator — Operator (extension point) and '
                  'Operators (8 built-ins).', [], []),
+    'internal': ('Built-ins', 'subsystem', 'net.objecthunter.exp4j.internal (not exported) — Builtins, the single '
+                 'implementation of every built-in function and operator, and BuiltinFunction / BuiltinOperator.',
+                 [], []),
 }
 
 LIBRARIES = {
-    'jdk': ('Java SE', 'library', 'java.base only: java.util (collections, Stack, EmptyStackException), '
-            'java.util.concurrent (ExecutorService, Future), java.lang.Math. exp4j has no runtime dependency.'),
-    'junit': ('JUnit 4', 'library', 'junit:junit 4.11 — test scope.'),
-    'logback': ('Logback', 'library', 'ch.qos.logback:logback-classic 1.1.1 — test scope (logback-test.xml).'),
+    'jdk': ('Java SE', 'library', 'java.base only: java.util, java.util.concurrent (ExecutorService, Future), '
+            'java.lang.Math, and java.lang.classfile + java.lang.invoke for the bytecode strategy. exp4j has no '
+            'runtime dependency and works in jlink-ed images.'),
+    'junit': ('JUnit 4', 'library', 'junit:junit 4.13.2 — test scope.'),
+    'logback': ('Logback', 'library', 'ch.qos.logback:logback-classic 1.6.5 — test scope (logback-test.xml).'),
     'tests': ('Unit tests', 'test', 'src/test/java — ExpressionBuilderTest, ExpressionTest, FunctionsTest, '
-              'TokenizerTest, ShuntingYardTest, ConcurrencyTests, PerformanceTest…'),
+              'TokenizerTest, ShuntingYardTest, BytecodeStrategyTest, BuiltinsTest, ConcurrencyTests, '
+              'PerformanceTest…'),
 }
 
 INTERFACES = {
@@ -41,7 +47,8 @@ INTERFACES = {
 # Usages that don't go through an interface: (client, supplier)
 USES = [('api', 'shunting'), ('api', 'tokenizer'), ('api', 'function'), ('api', 'operator'),
         ('shunting', 'tokenizer'), ('shunting', 'function'), ('shunting', 'operator'),
-        ('tokenizer', 'function'), ('tokenizer', 'operator'), ('client', 'function'), ('client', 'operator')]
+        ('tokenizer', 'function'), ('tokenizer', 'operator'), ('client', 'function'), ('client', 'operator'),
+        ('api', 'internal'), ('function', 'internal'), ('operator', 'internal')]
 
 LIBRARY_USES = [('api', 'jdk'), ('shunting', 'jdk'), ('tokenizer', 'jdk'), ('tests', 'api'), ('tests', 'junit'),
                 ('tests', 'logback')]

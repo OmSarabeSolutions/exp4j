@@ -14,6 +14,21 @@
                 .setVariable("y", 3.14);
         double result = e.evaluate();
     </pre>
+<b>Choosing an evaluation strategy</b><br>
+<p>By default an expression is evaluated by an interpreter, which keeps <code>build()</code> cheap. For an
+    expression evaluated many times, select {@link net.objecthunter.exp4j.EvaluationStrategy#BYTECODE}: JVM bytecode
+    is generated for the expression at build time, and it runs at close to the speed of hand-written Java. Only
+    <code>java.base</code> is required, so it works in runtime images built with jlink. Where classes cannot be
+    defined at runtime (e.g. a GraalVM native image) the expression falls back to the interpreter.</p>
+<pre>
+        Expression e = new ExpressionBuilder("log(x) - y * sqrt(x^cos(y))")
+                .variables("x", "y")
+                .strategy(EvaluationStrategy.BYTECODE)
+                .build();
+        for (double x = 1; x &lt; 1000; x++) {
+            double result = e.setVariable("x", x).setVariable("y", 0.5).evaluate();
+        }
+    </pre>
 <b>Using custom functions</b><br>
 <p>you can extend the abstract class Function in order to use custom functions in expressions. You only have to
     implement the

@@ -15,6 +15,9 @@
  */
 package net.objecthunter.exp4j.function;
 
+import net.objecthunter.exp4j.internal.BuiltinFunction;
+import net.objecthunter.exp4j.internal.Builtins;
+
 /**
  * Class representing the builtin functions available for use in expressions
  */
@@ -55,216 +58,37 @@ public class Functions {
     private static final Function[] BUILT_IN_FUNCTIONS = new Function[31];
 
     static {
-        BUILT_IN_FUNCTIONS[INDEX_SIN] = new Function("sin") {
-            @Override
-            public double apply(double... args) {
-                return Math.sin(args[0]);
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_COS] = new Function("cos") {
-            @Override
-            public double apply(double... args) {
-                return Math.cos(args[0]);
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_TAN] = new Function("tan") {
-            @Override
-            public double apply(double... args) {
-                return Math.tan(args[0]);
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_COT] = new Function("cot") {
-            @Override
-            public double apply(double... args) {
-                double tan = Math.tan(args[0]);
-                if (tan == 0d) {
-                    throw new ArithmeticException("Division by zero in cotangent!");
-                }
-                return 1d / tan;
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_LOG] = new Function("log") {
-            @Override
-            public double apply(double... args) {
-                return Math.log(args[0]);
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_LOG2] = new Function("log2") {
-            @Override
-            public double apply(double... args) {
-                return Math.log(args[0]) / Math.log(2d);
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_LOG10] = new Function("log10") {
-            @Override
-            public double apply(double... args) {
-                return Math.log10(args[0]);
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_LOG1P] = new Function("log1p") {
-            @Override
-            public double apply(double... args) {
-                return Math.log1p(args[0]);
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_ABS] = new Function("abs") {
-            @Override
-            public double apply(double... args) {
-                return Math.abs(args[0]);
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_ACOS] = new Function("acos") {
-            @Override
-            public double apply(double... args) {
-                return Math.acos(args[0]);
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_ASIN] = new Function("asin") {
-            @Override
-            public double apply(double... args) {
-                return Math.asin(args[0]);
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_ATAN] = new Function("atan") {
-            @Override
-            public double apply(double... args) {
-                return Math.atan(args[0]);
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_CBRT] = new Function("cbrt") {
-            @Override
-            public double apply(double... args) {
-                return Math.cbrt(args[0]);
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_FLOOR] = new Function("floor") {
-            @Override
-            public double apply(double... args) {
-                return Math.floor(args[0]);
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_SINH] = new Function("sinh") {
-            @Override
-            public double apply(double... args) {
-                return Math.sinh(args[0]);
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_SQRT] = new Function("sqrt") {
-            @Override
-            public double apply(double... args) {
-                return Math.sqrt(args[0]);
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_TANH] = new Function("tanh") {
-            @Override
-            public double apply(double... args) {
-                return Math.tanh(args[0]);
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_COSH] = new Function("cosh") {
-            @Override
-            public double apply(double... args) {
-                return Math.cosh(args[0]);
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_CEIL] = new Function("ceil") {
-            @Override
-            public double apply(double... args) {
-                return Math.ceil(args[0]);
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_POW] = new Function("pow", 2) {
-            @Override
-            public double apply(double... args) {
-                return Math.pow(args[0], args[1]);
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_EXP] = new Function("exp", 1) {
-            @Override
-            public double apply(double... args) {
-                return Math.exp(args[0]);
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_EXPM1] = new Function("expm1", 1) {
-            @Override
-            public double apply(double... args) {
-                return Math.expm1(args[0]);
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_SGN] = new Function("signum", 1) {
-            @Override
-            public double apply(double... args) {
-                if (args[0] > 0) {
-                    return 1;
-                } else if (args[0] < 0) {
-                    return -1;
-                } else {
-                    return 0;
-                }
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_CSC] = new Function("csc") {
-            @Override
-            public double apply(double... args) {
-                double sin = Math.sin(args[0]);
-                if (sin == 0d) {
-                    throw new ArithmeticException("Division by zero in cosecant!");
-                }
-                return 1d / sin;
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_SEC] = new Function("sec") {
-            @Override
-            public double apply(double... args) {
-                double cos = Math.cos(args[0]);
-                if (cos == 0d) {
-                    throw new ArithmeticException("Division by zero in secant!");
-                }
-                return 1d / cos;
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_CSCH] = new Function("csch") {
-            @Override
-            public double apply(double... args) {
-                //this would throw an ArithmeticException later as sinh(0) = 0
-                if (args[0] == 0d) {
-                    return 0;
-                }
-
-                return 1d / Math.sinh(args[0]);
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_SECH] = new Function("sech") {
-            @Override
-            public double apply(double... args) {
-                return 1d / Math.cosh(args[0]);
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_COTH] = new Function("coth") {
-            @Override
-            public double apply(double... args) {
-                return Math.cosh(args[0]) / Math.sinh(args[0]);
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_LOGB] = new Function("logb", 2) {
-            @Override
-            public double apply(double... args) {
-                return Math.log(args[1]) / Math.log(args[0]);
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_TO_RADIAN] = new Function("toradian") {
-            @Override
-            public double apply(double... args) {
-                return Math.toRadians(args[0]);
-            }
-        };
-        BUILT_IN_FUNCTIONS[INDEX_TO_DEGREE] = new Function("todegree") {
-            @Override
-            public double apply(double... args) {
-                return Math.toDegrees(args[0]);
-            }
-        };
-
+        BUILT_IN_FUNCTIONS[INDEX_SIN] = new BuiltinFunction("sin", 1, Builtins.SIN);
+        BUILT_IN_FUNCTIONS[INDEX_COS] = new BuiltinFunction("cos", 1, Builtins.COS);
+        BUILT_IN_FUNCTIONS[INDEX_TAN] = new BuiltinFunction("tan", 1, Builtins.TAN);
+        BUILT_IN_FUNCTIONS[INDEX_CSC] = new BuiltinFunction("csc", 1, Builtins.CSC);
+        BUILT_IN_FUNCTIONS[INDEX_SEC] = new BuiltinFunction("sec", 1, Builtins.SEC);
+        BUILT_IN_FUNCTIONS[INDEX_COT] = new BuiltinFunction("cot", 1, Builtins.COT);
+        BUILT_IN_FUNCTIONS[INDEX_SINH] = new BuiltinFunction("sinh", 1, Builtins.SINH);
+        BUILT_IN_FUNCTIONS[INDEX_COSH] = new BuiltinFunction("cosh", 1, Builtins.COSH);
+        BUILT_IN_FUNCTIONS[INDEX_TANH] = new BuiltinFunction("tanh", 1, Builtins.TANH);
+        BUILT_IN_FUNCTIONS[INDEX_CSCH] = new BuiltinFunction("csch", 1, Builtins.CSCH);
+        BUILT_IN_FUNCTIONS[INDEX_SECH] = new BuiltinFunction("sech", 1, Builtins.SECH);
+        BUILT_IN_FUNCTIONS[INDEX_COTH] = new BuiltinFunction("coth", 1, Builtins.COTH);
+        BUILT_IN_FUNCTIONS[INDEX_ASIN] = new BuiltinFunction("asin", 1, Builtins.ASIN);
+        BUILT_IN_FUNCTIONS[INDEX_ACOS] = new BuiltinFunction("acos", 1, Builtins.ACOS);
+        BUILT_IN_FUNCTIONS[INDEX_ATAN] = new BuiltinFunction("atan", 1, Builtins.ATAN);
+        BUILT_IN_FUNCTIONS[INDEX_SQRT] = new BuiltinFunction("sqrt", 1, Builtins.SQRT);
+        BUILT_IN_FUNCTIONS[INDEX_CBRT] = new BuiltinFunction("cbrt", 1, Builtins.CBRT);
+        BUILT_IN_FUNCTIONS[INDEX_ABS] = new BuiltinFunction("abs", 1, Builtins.ABS);
+        BUILT_IN_FUNCTIONS[INDEX_CEIL] = new BuiltinFunction("ceil", 1, Builtins.CEIL);
+        BUILT_IN_FUNCTIONS[INDEX_FLOOR] = new BuiltinFunction("floor", 1, Builtins.FLOOR);
+        BUILT_IN_FUNCTIONS[INDEX_EXP] = new BuiltinFunction("exp", 1, Builtins.EXP);
+        BUILT_IN_FUNCTIONS[INDEX_EXPM1] = new BuiltinFunction("expm1", 1, Builtins.EXPM1);
+        BUILT_IN_FUNCTIONS[INDEX_LOG10] = new BuiltinFunction("log10", 1, Builtins.LOG10);
+        BUILT_IN_FUNCTIONS[INDEX_LOG2] = new BuiltinFunction("log2", 1, Builtins.LOG2);
+        BUILT_IN_FUNCTIONS[INDEX_LOG] = new BuiltinFunction("log", 1, Builtins.LOG);
+        BUILT_IN_FUNCTIONS[INDEX_LOG1P] = new BuiltinFunction("log1p", 1, Builtins.LOG1P);
+        BUILT_IN_FUNCTIONS[INDEX_SGN] = new BuiltinFunction("signum", 1, Builtins.SIGNUM);
+        BUILT_IN_FUNCTIONS[INDEX_TO_RADIAN] = new BuiltinFunction("toradian", 1, Builtins.TO_RADIAN);
+        BUILT_IN_FUNCTIONS[INDEX_TO_DEGREE] = new BuiltinFunction("todegree", 1, Builtins.TO_DEGREE);
+        BUILT_IN_FUNCTIONS[INDEX_POW] = new BuiltinFunction("pow", 2, Builtins.POWER);
+        BUILT_IN_FUNCTIONS[INDEX_LOGB] = new BuiltinFunction("logb", 2, Builtins.LOGB);
     }
 
     /**
