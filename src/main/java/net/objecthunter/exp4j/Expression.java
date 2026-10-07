@@ -28,18 +28,22 @@ public class Expression {
 
     private final Token[] tokens;
 
-    private final Map<String, Double> variables;
-
     private final Set<String> userFunctionNames;
 
-    private static Map<String, Double> createDefaultVariables() {
-        final Map<String, Double> vars = new HashMap<>(4);
-        vars.put("pi", Math.PI);
-        vars.put("π", Math.PI);  		    // 3.141592653589793
-        vars.put("φ", 1.618033988749895d);  // golden ratio (1 + √5) / 2
-        vars.put("e", Math.E);  			// 2.718281828459045
-        return vars;
-    }
+    /* slot index of each distinct variable name occurring in the tokens */
+    private final Map<String, Integer> varSlots;
+
+    private final String[] varNames;
+
+    /* false for slot names clashing with a function, so setVariable() still rejects them */
+    private final boolean[] varNameValid;
+
+    private final double[] varValues;
+
+    private final boolean[] varSet;
+
+    /* null when the tokens are structurally invalid; evaluate() then interprets the tokens */
+    private final CompiledExpression program;
 
     /**
      * Creates a new expression that is a copy of the existing one.
@@ -48,31 +52,75 @@ public class Expression {
      */
     public Expression(final Expression existing) {
         this.tokens = Arrays.copyOf(existing.tokens, existing.tokens.length);
-        this.variables = new HashMap<>();
-        this.variables.putAll(existing.variables);
         this.userFunctionNames = new HashSet<>(existing.userFunctionNames);
+        this.varSlots = existing.varSlots;
+        this.varNames = existing.varNames;
+        this.varNameValid = existing.varNameValid;
+        this.varValues = existing.varValues.clone();
+        this.varSet = existing.varSet.clone();
+        this.program = existing.program;
     }
 
     Expression(final Token[] tokens) {
-        this.tokens = tokens;
-        this.variables = createDefaultVariables();
-        this.userFunctionNames = Collections.emptySet();
+        this(tokens, Collections.emptySet());
     }
 
     Expression(final Token[] tokens, Set<String> userFunctionNames) {
         this.tokens = tokens;
-        this.variables = createDefaultVariables();
         this.userFunctionNames = userFunctionNames;
+        final Map<String, Integer> slots = new HashMap<>();
+        for (final Token t : tokens) {
+            if (t.getType() == Token.TOKEN_VARIABLE) {
+                slots.putIfAbsent(((VariableToken) t).getName(), slots.size());
+            }
+        }
+        this.varSlots = slots;
+        this.varNames = new String[slots.size()];
+        this.varNameValid = new boolean[slots.size()];
+        this.varValues = new double[slots.size()];
+        this.varSet = new boolean[slots.size()];
+        for (Map.Entry<String, Integer> e : slots.entrySet()) {
+            final int slot = e.getValue();
+            varNames[slot] = e.getKey();
+            varNameValid[slot] = isValidVariableName(e.getKey());
+        }
+        setDefaultVariables();
+        this.program = CompiledExpression.compile(tokens, slots);
+    }
+
+    private void setDefaultVariables() {
+        setIfPresent("pi", Math.PI);
+        setIfPresent("π", Math.PI);              // 3.141592653589793
+        setIfPresent("φ", 1.618033988749895d);   // golden ratio (1 + √5) / 2
+        setIfPresent("e", Math.E);               // 2.718281828459045
+    }
+
+    private void setIfPresent(final String name, final double value) {
+        final Integer slot = varSlots.get(name);
+        if (slot != null) {
+            varValues[slot] = value;
+            varSet[slot] = true;
+        }
     }
 
     public Expression setVariable(final String name, final double value) {
-        this.checkVariableName(name);
-        this.variables.put(name, value);
+        final Integer slot = this.varSlots.get(name);
+        if (slot == null || !this.varNameValid[slot]) {
+            this.checkVariableName(name);
+        }
+        if (slot != null) {
+            this.varValues[slot] = value;
+            this.varSet[slot] = true;
+        }
         return this;
     }
 
+    private boolean isValidVariableName(String name) {
+        return !this.userFunctionNames.contains(name) && Functions.getBuiltinFunction(name) == null;
+    }
+
     private void checkVariableName(String name) {
-        if (this.userFunctionNames.contains(name) || Functions.getBuiltinFunction(name) != null) {
+        if (!isValidVariableName(name)) {
             throw new IllegalArgumentException("The variable name '" + name + "' is invalid. Since there exists a function with the same name");
         }
     }
@@ -85,7 +133,7 @@ public class Expression {
     }
 
     public Expression clearVariables() {
-        this.variables.clear();
+        Arrays.fill(this.varSet, false);
         return this;
     }
 
@@ -105,7 +153,7 @@ public class Expression {
             for (final Token t : this.tokens) {
                 if (t.getType() == Token.TOKEN_VARIABLE) {
                     final String var = ((VariableToken) t).getName();
-                    if (!variables.containsKey(var)) {
+                    if (!this.varSet[this.varSlots.get(var)]) {
                         errors.add("The setVariable '" + var + "' has not been set");
                     }
                 }
@@ -166,17 +214,25 @@ public class Expression {
     }
 
     public double evaluate() {
+        if (program != null) {
+            return program.evaluate(varValues, varSet, varNames);
+        }
+        return interpret();
+    }
+
+    /* Token interpreter, only used for structurally invalid expressions to keep their error reporting */
+    private double interpret() {
         final ArrayStack output = new ArrayStack();
         for (Token t : tokens) {
             if (t.getType() == Token.TOKEN_NUMBER) {
                 output.push(((NumberToken) t).getValue());
             } else if (t.getType() == Token.TOKEN_VARIABLE) {
                 final String name = ((VariableToken) t).getName();
-                final Double value = this.variables.get(name);
-                if (value == null) {
+                final int slot = this.varSlots.get(name);
+                if (!this.varSet[slot]) {
                     throw new IllegalArgumentException("No value has been set for the setVariable '" + name + "'.");
                 }
-                output.push(value);
+                output.push(this.varValues[slot]);
             } else if (t.getType() == Token.TOKEN_OPERATOR) {
                 OperatorToken op = (OperatorToken) t;
                 if (output.size() < op.getOperator().getNumOperands()) {
