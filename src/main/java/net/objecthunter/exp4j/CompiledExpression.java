@@ -36,29 +36,33 @@ import java.util.Map;
  * Variables are read from a slot array instead of a {@link java.util.HashMap}. Custom
  * operators and functions fall back to their {@code apply(double...)} implementation.
  */
-final class CompiledExpression {
+final class CompiledExpression implements Program {
 
-    private static final int OP_CONST = 0;
-    private static final int OP_VAR = 1;
-    private static final int OP_UNARY = 2;
-    private static final int OP_BINARY = 3;
-    private static final int OP_CUSTOM_OPERATOR = 4;
-    private static final int OP_CUSTOM_FUNCTION = 5;
+    /* opcodes; args[i] holds the constant index, variable slot, Builtins code or custom index */
+    static final int OP_CONST = 0;
+    static final int OP_VAR = 1;
+    static final int OP_UNARY = 2;
+    static final int OP_BINARY = 3;
+    static final int OP_CUSTOM_OPERATOR = 4;
+    static final int OP_CUSTOM_FUNCTION = 5;
 
-    private final int[] ops;
-    private final int[] args;
-    private final double[] constants;
-    private final Operator[] operators;
-    private final Function[] functions;
+    /* package-private so that BytecodeCompiler can translate the program */
+    final int[] ops;
+    final int[] args;
+    final double[] constants;
+    final Operator[] operators;
+    final Function[] functions;
+    final String[] varNames;
     private final int maxStack;
 
     private CompiledExpression(int[] ops, int[] args, double[] constants, Operator[] operators,
-                               Function[] functions, int maxStack) {
+                               Function[] functions, String[] varNames, int maxStack) {
         this.ops = ops;
         this.args = args;
         this.constants = constants;
         this.operators = operators;
         this.functions = functions;
+        this.varNames = varNames;
         this.maxStack = maxStack;
     }
 
@@ -148,11 +152,20 @@ final class CompiledExpression {
         for (int i = 0; i < consts.length; i++) {
             consts[i] = constants.get(i);
         }
+        final String[] varNames = new String[varSlots.size()];
+        for (Map.Entry<String, Integer> e : varSlots.entrySet()) {
+            varNames[e.getValue()] = e.getKey();
+        }
         return new CompiledExpression(Arrays.copyOf(ops, count), Arrays.copyOf(args, count), consts,
-                operators.toArray(new Operator[0]), functions.toArray(new Function[0]), maxDepth);
+                operators.toArray(new Operator[0]), functions.toArray(new Function[0]), varNames, maxDepth);
     }
 
-    double evaluate(final double[] values, final boolean[] valueSet, final String[] names) {
+    static IllegalArgumentException variableNotSet(final String name) {
+        return new IllegalArgumentException("No value has been set for the setVariable '" + name + "'.");
+    }
+
+    @Override
+    public double evaluate(final double[] values, final boolean[] valueSet) {
         final int[] ops = this.ops;
         final int[] args = this.args;
         final double[] stack = new double[maxStack];
@@ -165,16 +178,16 @@ final class CompiledExpression {
                 case OP_VAR: {
                     final int slot = args[i];
                     if (!valueSet[slot]) {
-                        throw new IllegalArgumentException("No value has been set for the setVariable '" + names[slot] + "'.");
+                        throw variableNotSet(varNames[slot]);
                     }
                     stack[++sp] = values[slot];
                     break;
                 }
                 case OP_UNARY:
-                    stack[sp] = Builtins.unary(args[i], stack[sp]);
+                    stack[sp] = Builtins.unary(stack[sp], args[i]);
                     break;
                 case OP_BINARY:
-                    stack[sp - 1] = Builtins.binary(args[i], stack[sp - 1], stack[sp]);
+                    stack[sp - 1] = Builtins.binary(stack[sp - 1], stack[sp], args[i]);
                     sp--;
                     break;
                 case OP_CUSTOM_OPERATOR: {

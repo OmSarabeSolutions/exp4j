@@ -77,5 +77,20 @@
             <action dev="serso" types="fix">Avoiding Auto-Boxing/Unboxing for performance reasons</action>
             <action dev="serso" types="fix">Removed unnecessary argument array reversal</action>
         </release>
+        <release version="0.4.20" description="Performance release">
+            <action dev="mlessard" type="add">EvaluationStrategy and ExpressionBuilder.strategy(): BYTECODE generates a
+                hidden class per expression with the java.lang.classfile API (falls back to the interpreter where
+                classes cannot be defined at runtime); INTERPRETED remains the default
+            </action>
+            <action dev="mlessard" type="update">Expressions are compiled at build time: variables are stored in
+                slots instead of a HashMap, built-ins are evaluated without varargs allocation or virtual calls
+            </action>
+            <action dev="mlessard" type="update">Built-in functions and operators are implemented once, in the
+                non-exported package net.objecthunter.exp4j.internal
+            </action>
+            <action dev="mlessard" type="fix">PerformanceTest: results are consumed so that the JIT cannot remove the
+                java.lang.Math baseline as dead code
+            </action>
+        </release>
     </body>
 </document>

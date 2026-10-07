@@ -40,6 +40,6 @@ public final class BuiltinFunction extends Function {
 
     @Override
     public double apply(double... args) {
-        return numArguments == 1 ? Builtins.unary(code, args[0]) : Builtins.binary(code, args[0], args[1]);
+        return numArguments == 1 ? Builtins.unary(args[0], code) : Builtins.binary(args[0], args[1], code);
     }
 }

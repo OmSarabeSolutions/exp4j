@@ -24,6 +24,16 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
+/**
+ * A parsed and compiled expression, created by {@link ExpressionBuilder#build()}.
+ * <p>
+ * Set the variables with {@link #setVariable(String, double)}, then call {@link #evaluate()} as often as needed.
+ * The expression is compiled once, when it is built, according to the {@link EvaluationStrategy} selected on the
+ * builder: interpreted by default, or as generated JVM bytecode.
+ * <p>
+ * An instance holds mutable variable values and must not be modified by several threads at once. Give each thread
+ * its own copy with {@link #Expression(Expression)}; copies share the parsed tokens and the compiled program.
+ */
 public class Expression {
 
     private final Token[] tokens;
@@ -38,12 +48,18 @@ public class Expression {
     /* false for slot names clashing with a function, so setVariable() still rejects them */
     private final boolean[] varNameValid;
 
+    /* interned valid slot names (null for invalid ones) for the identity scan in setVariable();
+       empty when there are too many variables for a linear scan to pay off */
+    private final String[] fastNames;
+
+    private static final int MAX_FAST_NAMES = 16;
+
     private final double[] varValues;
 
     private final boolean[] varSet;
 
     /* null when the tokens are structurally invalid; evaluate() then interprets the tokens */
-    private final CompiledExpression program;
+    private final Program program;
 
     /**
      * Creates a new expression that is a copy of the existing one.
@@ -56,6 +72,7 @@ public class Expression {
         this.varSlots = existing.varSlots;
         this.varNames = existing.varNames;
         this.varNameValid = existing.varNameValid;
+        this.fastNames = existing.fastNames;
         this.varValues = existing.varValues.clone();
         this.varSet = existing.varSet.clone();
         this.program = existing.program;
@@ -66,6 +83,10 @@ public class Expression {
     }
 
     Expression(final Token[] tokens, Set<String> userFunctionNames) {
+        this(tokens, userFunctionNames, EvaluationStrategy.INTERPRETED);
+    }
+
+    Expression(final Token[] tokens, Set<String> userFunctionNames, EvaluationStrategy strategy) {
         this.tokens = tokens;
         this.userFunctionNames = userFunctionNames;
         final Map<String, Integer> slots = new HashMap<>();
@@ -81,11 +102,31 @@ public class Expression {
         this.varSet = new boolean[slots.size()];
         for (Map.Entry<String, Integer> e : slots.entrySet()) {
             final int slot = e.getValue();
-            varNames[slot] = e.getKey();
+            varNames[slot] = e.getKey().intern();
             varNameValid[slot] = isValidVariableName(e.getKey());
         }
+        this.fastNames = new String[slots.size() <= MAX_FAST_NAMES ? slots.size() : 0];
+        for (int i = 0; i < fastNames.length; i++) {
+            fastNames[i] = varNameValid[i] ? varNames[i] : null;
+        }
         setDefaultVariables();
-        this.program = CompiledExpression.compile(tokens, slots);
+        this.program = compile(tokens, slots, strategy);
+    }
+
+    private static Program compile(Token[] tokens, Map<String, Integer> slots, EvaluationStrategy strategy) {
+        final CompiledExpression compiled = CompiledExpression.compile(tokens, slots);
+        if (compiled != null && strategy == EvaluationStrategy.BYTECODE) {
+            final Program generated = BytecodeCompiler.compile(compiled);
+            if (generated != null) {
+                return generated;
+            }
+        }
+        return compiled;
+    }
+
+    /* the program evaluate() runs; exposed for tests */
+    Program program() {
+        return this.program;
     }
 
     private void setDefaultVariables() {
@@ -104,6 +145,20 @@ public class Expression {
     }
 
     public Expression setVariable(final String name, final double value) {
+        /* Fast path: names are usually string literals, which are interned like fastNames, so an
+           identity scan finds them without hashing. Kept small so the JIT inlines it at call sites. */
+        final String[] names = this.fastNames;
+        for (int i = 0; i < names.length; i++) {
+            if (names[i] == name) {
+                this.varValues[i] = value;
+                this.varSet[i] = true;
+                return this;
+            }
+        }
+        return setVariableSlow(name, value);
+    }
+
+    private Expression setVariableSlow(final String name, final double value) {
         final Integer slot = this.varSlots.get(name);
         if (slot == null || !this.varNameValid[slot]) {
             this.checkVariableName(name);
@@ -215,7 +270,7 @@ public class Expression {
 
     public double evaluate() {
         if (program != null) {
-            return program.evaluate(varValues, varSet, varNames);
+            return program.evaluate(varValues, varSet);
         }
         return interpret();
     }

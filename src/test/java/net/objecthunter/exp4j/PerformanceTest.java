@@ -46,9 +46,15 @@ public class PerformanceTest {
         System.out.print(sb.toString());
         sb.setLength(0);
 
-        int db = benchDouble();
+        int db = benchDouble(EvaluationStrategy.INTERPRETED);
         double dbRate = (double) db / (double) BENCH_TIME;
-        fmt.format("| %-22s | %25.2f | %22.2f %% |%n", "exp4j", dbRate, dbRate * 100 / mathRate);
+        fmt.format("| %-22s | %25.2f | %22.2f %% |%n", "exp4j (interpreted)", dbRate, dbRate * 100 / mathRate);
+        System.out.print(sb.toString());
+        sb.setLength(0);
+
+        int bc = benchDouble(EvaluationStrategy.BYTECODE);
+        double bcRate = (double) bc / (double) BENCH_TIME;
+        fmt.format("| %-22s | %25.2f | %22.2f %% |%n", "exp4j (bytecode)", bcRate, bcRate * 100 / mathRate);
         System.out.print(sb.toString());
         sb.setLength(0);
 
@@ -59,9 +65,10 @@ public class PerformanceTest {
         System.out.print(sb.toString());
     }
 
-    private int benchDouble() {
+    private int benchDouble(EvaluationStrategy strategy) {
         final Expression expression = new ExpressionBuilder(EXPRESSION)
                 .variables("x", "y")
+                .strategy(strategy)
                 .build();
         double val = 0;
         Random rnd = new Random();

@@ -67,17 +67,73 @@ public final class Builtins {
     public static final int MODULO = 5;
     public static final int LOGB = 6;
 
+    /**
+     * Name of the {@code static double name(double)} method implementing each unary code, indexed by code.
+     * Used by the bytecode generator to call the implementation directly.
+     */
+    public static final String[] UNARY_METHODS = {
+            "sin",   // SIN
+            "cos",   // COS
+            "tan",   // TAN
+            "csc",   // CSC
+            "sec",   // SEC
+            "cot",   // COT
+            "sinh",   // SINH
+            "cosh",   // COSH
+            "tanh",   // TANH
+            "csch",   // CSCH
+            "sech",   // SECH
+            "coth",   // COTH
+            "asin",   // ASIN
+            "acos",   // ACOS
+            "atan",   // ATAN
+            "sqrt",   // SQRT
+            "cbrt",   // CBRT
+            "abs",   // ABS
+            "ceil",   // CEIL
+            "floor",   // FLOOR
+            "exp",   // EXP
+            "expm1",   // EXPM1
+            "log10",   // LOG10
+            "log2",   // LOG2
+            "log",   // LOG
+            "log1p",   // LOG1P
+            "signum",   // SIGNUM
+            "toRadian",   // TO_RADIAN
+            "toDegree",   // TO_DEGREE
+            "negate",   // NEGATE
+            "identity",   // IDENTITY
+    };
+
+    /**
+     * Name of the {@code static double name(double, double)} method implementing each binary code, indexed by code.
+     */
+    public static final String[] BINARY_METHODS = {
+            "add",   // ADD
+            "subtract",   // SUBTRACT
+            "multiply",   // MULTIPLY
+            "divide",   // DIVIDE
+            "power",   // POWER
+            "modulo",   // MODULO
+            "logb",   // LOGB
+    };
+
     private Builtins() {
     }
 
-    public static double unary(final int code, final double a) {
+    /*
+     * Dispatch by code, used by the interpreter and by BuiltinFunction/BuiltinOperator.apply().
+     * Every case only calls the implementing method below, which keeps this switch small.
+     */
+
+    public static double unary(final double a, final int code) {
         switch (code) {
             case SIN:
-                return Math.sin(a);
+                return sin(a);
             case COS:
-                return Math.cos(a);
+                return cos(a);
             case TAN:
-                return Math.tan(a);
+                return tan(a);
             case CSC:
                 return csc(a);
             case SEC:
@@ -85,86 +141,99 @@ public final class Builtins {
             case COT:
                 return cot(a);
             case SINH:
-                return Math.sinh(a);
+                return sinh(a);
             case COSH:
-                return Math.cosh(a);
+                return cosh(a);
             case TANH:
-                return Math.tanh(a);
+                return tanh(a);
             case CSCH:
                 return csch(a);
             case SECH:
-                return 1d / Math.cosh(a);
+                return sech(a);
             case COTH:
-                return Math.cosh(a) / Math.sinh(a);
+                return coth(a);
             case ASIN:
-                return Math.asin(a);
+                return asin(a);
             case ACOS:
-                return Math.acos(a);
+                return acos(a);
             case ATAN:
-                return Math.atan(a);
+                return atan(a);
             case SQRT:
-                return Math.sqrt(a);
+                return sqrt(a);
             case CBRT:
-                return Math.cbrt(a);
+                return cbrt(a);
             case ABS:
-                return Math.abs(a);
+                return abs(a);
             case CEIL:
-                return Math.ceil(a);
+                return ceil(a);
             case FLOOR:
-                return Math.floor(a);
+                return floor(a);
             case EXP:
-                return Math.exp(a);
+                return exp(a);
             case EXPM1:
-                return Math.expm1(a);
+                return expm1(a);
             case LOG10:
-                return Math.log10(a);
+                return log10(a);
             case LOG2:
-                return Math.log(a) / Math.log(2d);
+                return log2(a);
             case LOG:
-                return Math.log(a);
+                return log(a);
             case LOG1P:
-                return Math.log1p(a);
+                return log1p(a);
             case SIGNUM:
                 return signum(a);
             case TO_RADIAN:
-                return Math.toRadians(a);
+                return toRadian(a);
             case TO_DEGREE:
-                return Math.toDegrees(a);
+                return toDegree(a);
             case NEGATE:
-                return -a;
+                return negate(a);
             case IDENTITY:
-                return a;
+                return identity(a);
             default:
                 throw unknown(code);
         }
     }
 
-    public static double binary(final int code, final double a, final double b) {
+    public static double binary(final double a, final double b, final int code) {
         switch (code) {
             case ADD:
-                return a + b;
+                return add(a, b);
             case SUBTRACT:
-                return a - b;
+                return subtract(a, b);
             case MULTIPLY:
-                return a * b;
+                return multiply(a, b);
             case DIVIDE:
                 return divide(a, b);
             case POWER:
-                return Math.pow(a, b);
+                return power(a, b);
             case MODULO:
                 return modulo(a, b);
             case LOGB:
-                return Math.log(b) / Math.log(a);
+                return logb(a, b);
             default:
                 throw unknown(code);
         }
     }
 
-    /* Multi-statement cases live in their own methods so that unary() stays below the JIT's
-       inlining size limit (FreqInlineSize, 325 bytes of bytecode); inlining it into the
-       evaluator lets the JIT fold the code dispatch, which is the main evaluation cost. */
+    /*
+     * The implementations: the single definition of each built-in. They are deliberately tiny
+     * so that the JIT inlines them at every call site, including from generated bytecode.
+     */
 
-    private static double csc(final double a) {
+    public static double sin(final double a) {
+        return Math.sin(a);
+    }
+
+    public static double cos(final double a) {
+        return Math.cos(a);
+    }
+
+    public static double tan(final double a) {
+        return Math.tan(a);
+    }
+
+    public static double csc(final double a) {
         final double sin = Math.sin(a);
         if (sin == 0d) {
             throw new ArithmeticException("Division by zero in cosecant!");
@@ -172,7 +241,7 @@ public final class Builtins {
         return 1d / sin;
     }
 
-    private static double sec(final double a) {
+    public static double sec(final double a) {
         final double cos = Math.cos(a);
         if (cos == 0d) {
             throw new ArithmeticException("Division by zero in secant!");
@@ -180,7 +249,7 @@ public final class Builtins {
         return 1d / cos;
     }
 
-    private static double cot(final double a) {
+    public static double cot(final double a) {
         final double tan = Math.tan(a);
         if (tan == 0d) {
             throw new ArithmeticException("Division by zero in cotangent!");
@@ -188,7 +257,19 @@ public final class Builtins {
         return 1d / tan;
     }
 
-    private static double csch(final double a) {
+    public static double sinh(final double a) {
+        return Math.sinh(a);
+    }
+
+    public static double cosh(final double a) {
+        return Math.cosh(a);
+    }
+
+    public static double tanh(final double a) {
+        return Math.tanh(a);
+    }
+
+    public static double csch(final double a) {
         //this would throw an ArithmeticException later as sinh(0) = 0
         if (a == 0d) {
             return 0;
@@ -196,7 +277,71 @@ public final class Builtins {
         return 1d / Math.sinh(a);
     }
 
-    private static double signum(final double a) {
+    public static double sech(final double a) {
+        return 1d / Math.cosh(a);
+    }
+
+    public static double coth(final double a) {
+        return Math.cosh(a) / Math.sinh(a);
+    }
+
+    public static double asin(final double a) {
+        return Math.asin(a);
+    }
+
+    public static double acos(final double a) {
+        return Math.acos(a);
+    }
+
+    public static double atan(final double a) {
+        return Math.atan(a);
+    }
+
+    public static double sqrt(final double a) {
+        return Math.sqrt(a);
+    }
+
+    public static double cbrt(final double a) {
+        return Math.cbrt(a);
+    }
+
+    public static double abs(final double a) {
+        return Math.abs(a);
+    }
+
+    public static double ceil(final double a) {
+        return Math.ceil(a);
+    }
+
+    public static double floor(final double a) {
+        return Math.floor(a);
+    }
+
+    public static double exp(final double a) {
+        return Math.exp(a);
+    }
+
+    public static double expm1(final double a) {
+        return Math.expm1(a);
+    }
+
+    public static double log10(final double a) {
+        return Math.log10(a);
+    }
+
+    public static double log2(final double a) {
+        return Math.log(a) / Math.log(2d);
+    }
+
+    public static double log(final double a) {
+        return Math.log(a);
+    }
+
+    public static double log1p(final double a) {
+        return Math.log1p(a);
+    }
+
+    public static double signum(final double a) {
         if (a > 0) {
             return 1;
         } else if (a < 0) {
@@ -206,18 +351,54 @@ public final class Builtins {
         }
     }
 
-    private static double divide(final double a, final double b) {
+    public static double toRadian(final double a) {
+        return Math.toRadians(a);
+    }
+
+    public static double toDegree(final double a) {
+        return Math.toDegrees(a);
+    }
+
+    public static double negate(final double a) {
+        return -a;
+    }
+
+    public static double identity(final double a) {
+        return a;
+    }
+
+    public static double add(final double a, final double b) {
+        return a + b;
+    }
+
+    public static double subtract(final double a, final double b) {
+        return a - b;
+    }
+
+    public static double multiply(final double a, final double b) {
+        return a * b;
+    }
+
+    public static double divide(final double a, final double b) {
         if (b == 0d) {
             throw new ArithmeticException("Division by zero!");
         }
         return a / b;
     }
 
-    private static double modulo(final double a, final double b) {
+    public static double power(final double a, final double b) {
+        return Math.pow(a, b);
+    }
+
+    public static double modulo(final double a, final double b) {
         if (b == 0d) {
             throw new ArithmeticException("Division by zero!");
         }
         return a % b;
+    }
+
+    public static double logb(final double a, final double b) {
+        return Math.log(b) / Math.log(a);
     }
 
     private static IllegalArgumentException unknown(final int code) {

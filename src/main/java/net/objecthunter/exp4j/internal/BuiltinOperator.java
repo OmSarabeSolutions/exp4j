@@ -39,6 +39,6 @@ public final class BuiltinOperator extends Operator {
 
     @Override
     public double apply(double... args) {
-        return getNumOperands() == 1 ? Builtins.unary(code, args[0]) : Builtins.binary(code, args[0], args[1]);
+        return getNumOperands() == 1 ? Builtins.unary(args[0], code) : Builtins.binary(args[0], args[1], code);
     }
 }
