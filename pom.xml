@@ -1,7 +1,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>net.objecthunter</groupId>
+    <groupId>OmSarabeSolutions</groupId>
     <artifactId>exp4j</artifactId>
     <version>0.4.21-SNAPSHOT</version>
     <name>exp4j</name>
@@ -12,9 +12,9 @@
         <maven.compiler.target>26</maven.compiler.target>
     </properties>
     <scm>
-        <connection>scm:git:http://github.com/fasseg/exp4j.git</connection>
-        <developerConnection>scm:git:https://github.com/fasseg/exp4j.git</developerConnection>
-        <url>https://github.com/fasseg/exp4j</url>
+        <connection>scm:git:http://github.com/OmSarabeSolutions/exp4j.git</connection>
+        <developerConnection>scm:git:https://github.com/OmSarabeSolutions/exp4j.git</developerConnection>
+        <url>https://github.com/OmSarabeSolutions/exp4j</url>
         <tag>HEAD</tag>
     </scm>
     <distributionManagement>
@@ -51,6 +51,17 @@
         </mailingList>
     </mailingLists>
     <developers>
+        <developer>
+            <id>mls</id>
+            <name>marco</name>
+            <email>marco.lessard@omsarabe.com</email>
+            <url>http://www.omsarabesolutions.com</url>
+            <organizationUrl>http://www.omsarabesolutions.com</organizationUrl>
+            <roles>
+                <role>developer</role>
+            </roles>
+            <timezone>-5</timezone>
+        </developer>
         <developer>
             <id>fas</id>
             <name>frank</name>
@@ -177,13 +188,22 @@
                    <maxmemory>512m</maxmemory>
                    <doclint>all,-missing</doclint>
                 </configuration>
-                
+                <reportSets>
+                    <reportSet>
+                        <!-- test-javadoc fails against the modular main sources -->
+                        <reports>
+                            <report>javadoc</report>
+                        </reports>
+                    </reportSet>
+                </reportSets>
             </plugin>
+            <!--
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>cobertura-maven-plugin</artifactId>
                 <version>2.7</version>
             </plugin>
+            -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-changes-plugin</artifactId>
